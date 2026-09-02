@@ -382,3 +382,8 @@ Additions only. Do not remove, rewrite, or reorder existing entries.
 - Reviewed dossier additions (mainly §4, plus §2.5/§2.12 and §3.6 data limitations). Added a root `README.md`: one-paragraph product summary, directory map, link to the dossier.
 - Recorded this session in `AiTranscripts/2026-09-02T1529+02_dossier-readme.md`.
 
+## 2026-09-02 15:33 (UTC+2) — GitHub Mermaid ER diagram
+
+- Quoted ER relationship labels that contain spaces so GitHub’s Mermaid parser no longer treats `to` in `marketed to` as `IDENTIFYING`.
+- Recorded this session in `AiTranscripts/2026-09-02T1533+02_github-mermaid.md`.
+

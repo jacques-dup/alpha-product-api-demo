@@ -738,16 +738,16 @@ erDiagram
 
     product_family  ||--o{ product         : editions
     product         ||--o{ product_item    : items
-    product         ||--o{ asset           : all assets
-    product_item    ||--o{ asset           : item assets
+    product         ||--o{ asset           : "all assets"
+    product_item    ||--o{ asset           : "item assets"
     product         ||--o{ product_tag     : tagged
     tag             ||--o{ product_tag     : tags
-    product         ||--o{ product_market  : listed in
+    product         ||--o{ product_market  : "listed in"
     market          ||--o{ product_market  : hosts
-    asset           ||--o{ asset_market    : marketed to
+    asset           ||--o{ asset_market    : "marketed in"
     market          ||--o{ asset_market    : targets
-    language        ||--o{ asset           : asset language
-    language        ||--o{ product         : copy language
+    language        ||--o{ asset           : "asset language"
+    language        ||--o{ product         : "copy language"
 ```
 
 
