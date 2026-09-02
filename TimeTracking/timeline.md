@@ -387,3 +387,9 @@ Additions only. Do not remove, rewrite, or reorder existing entries.
 - Quoted ER relationship labels that contain spaces so GitHub’s Mermaid parser no longer treats `to` in `marketed to` as `IDENTIFYING`.
 - Recorded this session in `AiTranscripts/2026-09-02T1533+02_github-mermaid.md`.
 
+## 2026-09-02 15:40 (UTC+2) — Session pause and day summary
+
+- Stopped tracking. Product is done; candidate will finish the executive summary and log that time manually.
+- Wrote `TimeTracking/2026-09-02-day-summary.md`: 45 min in two timeline windows today; about 8 h 49 min counted in the 12-hour envelope (about 3 h 11 min left). Deployments, ~20 min §4, and the exec summary are not in that 45 min unless added by hand.
+- Recorded this session in `AiTranscripts/2026-09-02T1540+02_session-pause-day-summary.md`.
+
