@@ -1,6 +1,6 @@
 # Product and Technical Dossier
 
-**Status:** draft — portal SPA at Vite origin `/` (no React Admin basename /admin) 2026-09-01 16:49 (UTC+2)
+**Status:** draft — section 4 (future and production) complete; §3.6 extended with data-model limitations 2026-09-02 15:17 (UTC+2)
 **Started:** 2026-08-31 20:01 (UTC+2)
 **Source coverage:** Brief comprehensive dossier required coverage
 **Original motivation (title only):** Whatsapp Content Distribution — not a runtime client and not a drop-in spec for this POC
@@ -548,7 +548,94 @@ flowchart TB
 
 ### 2.5 Deployment diagram
 
-To be refined. Intent: **one** C# deployable (**Product.ApplicationRoot**) plus the portal SPA (served by that host under a path such as `/admin`) and **wwwroot demo at `/`**. Live, reachable environment for assessors. Hosting vendor and pipelines later.
+**One** C# deployable (**Product.ApplicationRoot**) that also serves the portal SPA from its
+own `wwwroot`. This is a constraint, not a convenience: the portal is a same-origin client of
+Product.Bff (cookie session plus `X-CSRF`), and the OIDC callbacks `/signin-oidc` and
+`/signout-callback-oidc` land on the portal's own origin. The SPA and the BFF therefore have to
+answer on one host. Shipping the built SPA inside the API's `wwwroot` achieves that with no
+reverse proxy, no CORS, and no third-party cookies.
+
+```mermaid
+flowchart TB
+  Browser[Staff browser]
+  ApiClient[Service client<br/>client credentials]
+  IDP[Alpha Identity Provider -- dev]
+
+  subgraph azure [Azure -- Development subscription, uksouth]
+    subgraph app [App Service -- F1 Free, Windows, .NET 8 in-process, HTTPS only]
+      Static[wwwroot<br/>portal SPA owns /]
+      BFF[Product.Bff<br/>/api, /bff, OIDC callbacks]
+      ReadApi[Product.WebApi<br/>/product]
+      Store[Product.ProductStore]
+    end
+    PG[(PostgreSQL flexible server<br/>public access + firewall rules)]
+  end
+
+  Browser -->|HTTPS| Static
+  Browser -->|same-origin /api + cookie| BFF
+  Browser -->|OIDC redirect| IDP
+  ApiClient -->|bearer| ReadApi
+  BFF --> Store
+  ReadApi --> Store
+  Store --> PG
+  BFF -->|code exchange| IDP
+  ReadApi -->|validate JWT| IDP
+```
+
+Path ownership on that single host:
+
+
+| Path                                     | Served by                       |
+| ---------------------------------------- | ------------------------------- |
+| `/` plus `/assets/*`, `/favicon.svg`     | Portal SPA, from `wwwroot`      |
+| `/api/*`, `/bff/*`                       | Product.Bff (cookie + `X-CSRF`) |
+| `/signin-oidc`, `/signout-callback-oidc` | Product.Bff (OIDC callbacks)    |
+| `/product/*`                             | Product.WebApi (bearer token)   |
+
+
+Portal routes are **hash-based** (`/#/products`), so every portal URL reaches the host as `/`
+and no server-side SPA fallback route is required.
+
+The ApplicationRoot demo page (`index.html`, `app.js`, `styles.css`) stays in source but is
+**excluded from the deployed payload** — the SPA owns `/`, and two `index.html` files cannot
+both hold it. The demo page has no working value without a server-side token relay, so nothing
+is lost by dropping it from the deployment.
+
+#### Deployment steps
+
+Ordering matters: the SPA has to be built before the publish payload is assembled, because the
+merge in step 3 writes into the publish output.
+
+1. **Build the portal SPA.** In `Solution/product-portal`, install with the committed lockfile
+   and run the production build to produce `dist/`. No origin is baked in — the bundle calls
+   `/api` on whatever host serves it.
+2. **Publish Product.ApplicationRoot** in Release configuration to a staging directory.
+   `web.config` is generated automatically with `hostingModel="inprocess"` and
+   `processPath="dotnet"`, which is what the Windows App Service expects; it is not hand-edited.
+3. **Merge the SPA into the payload.** Delete the demo page files from the published `wwwroot`,
+   then copy the contents of `dist/` in, so the SPA owns `/`.
+4. **Apply the database schema and seed** to the PostgreSQL flexible server.
+5. **Set App Settings** on the App Service. User secrets do not travel, so each has to be
+   restated: `ConnectionStrings__ProductStore` (Npgsql keyword syntax, not a `postgresql://`
+   URI), `Bff__ClientId`, `Bff__ClientSecret`, `Bff__CountryCode`, and at least one
+   `Portal__AllowList__0` entry — without it the allow-list stub grants nobody portal access.
+6. **Register the redirect URIs** on the portal demo client in the IDP: `<host>/signin-oidc` and
+   `<host>/signout-callback-oidc`. The App Service default hostname carries a random suffix, and
+   the registered URI must match it exactly.
+7. **Deploy the merged publish output** to the App Service as a zip whose contents sit at the
+   archive root, not nested in a folder.
+8. **Verify:** `/` returns the portal shell, `/product/languages` returns 401, `/bff/user`
+   returns 401, then complete an interactive sign-in through the IDP in a browser.
+
+Steps 1 to 3 and 7 are currently **manual** — the C# solution is published and deployed by hand
+from the Rider IDE, and the SPA merge is a separate manual build-and-copy. That is acceptable for
+a POC with one environment and one deployer, but it is the weakest part of the setup: the merge
+is easy to forget, which would silently deploy an API with a stale or missing portal.
+
+**Intended target: a pipeline owns the whole sequence.** Build both artefacts, run the test
+suite, assemble the merged payload, deploy to a slot, smoke-test it, and swap. Steps 4 to 6 stay
+one-off per environment rather than per deployment. That removes the manual merge as a failure
+mode and makes the deployed portal reproducible from a commit rather than from a workstation.
 
 ### 2.6 Database schemas
 
@@ -807,18 +894,37 @@ See section 1.7 **Authentication intent** and §3.3. IDP service is consume-only
 
 | Piece                   | Baseline                                                                    |
 | ----------------------- | --------------------------------------------------------------------------- |
-| Product.ApplicationRoot | One C# process; plugs Bff + WebApi + ProductStore; **wwwroot demo at `/`**; portal SPA on a path such as `/admin` |
+| Product.ApplicationRoot | One C# process; plugs Bff + WebApi + ProductStore; serves the **portal SPA at `/`** from `wwwroot` |
 | Product.Bff             | Adapter service: Duende BFF, OIDC cookie, CRUD `/api`                       |
 | Product.WebApi          | Adapter service: JWT bearer, read-only catalog routes                       |
 | Product.ProductStore    | Postgres repository                                                         |
-| Portal                  | React Admin, TypeScript, Vite; source in `product-portal`                   |
+| Portal                  | React Admin, TypeScript, Vite; source in `product-portal`; built to `dist/` and shipped inside ApplicationRoot `wwwroot` |
 | Database                | PostgreSQL                                                                  |
 | Auth                    | IDP **dev**; scopes `alpha.idp.read` / `alpha.idp.readwrite`; portal allow-list stub; demo client ids in env |
 | Observability           | Application Insights when configured; otherwise stdout                      |
 | Exercise layout         | Colocate `product` and `product-portal` under `Solution/`                   |
 
 
-Hosting vendor and pipelines: to be refined.
+**Hosting.** Azure, in the Development subscription, region `uksouth`: one **App Service**
+(Windows, .NET 8, in-process, HTTPS-only) on an **F1 Free** plan, plus one **PostgreSQL flexible
+server** (v18, Burstable B2s) with public access restricted by firewall rules to the deployer's
+address and the App Service outbound addresses. No VNet integration and no custom domain — F1
+supports neither. Run cost is the database only; the compute tier is free.
+
+The single-host layout in §2.5 is what keeps this cheap. Hosting the portal as its own Azure
+resource would mean reunifying the origin, since the portal cannot authenticate cross-origin
+without third-party cookies. Static Web Apps cannot do that alone: linked backends are
+Standard-plan only and are restricted to the `/api` route prefix, so `/bff` and the OIDC
+callbacks could not be proxied. The workable separated option is Front Door in front of a Static
+Web App and the App Service, presenting one origin — worth it when the portal needs an
+independent release cadence, WAF, or CDN caching, and not before.
+
+**Pipelines.** Not yet built; deployment is manual today (see §2.5). The target is a single
+pipeline that builds both artefacts, assembles the merged payload, and deploys to a slot with a
+smoke test before swap.
+
+**Environments.** One. There is no staging environment, and the deployed app runs with
+`ASPNETCORE_ENVIRONMENT=Development` — see §3.6.
 
 ---
 
@@ -930,33 +1036,366 @@ Treat as **semantics to ignore** until they become a problem. This POC: confiden
 - Alert rules in Azure Monitor are not designed in this POC; we emit events/logs so they can be wired later.
 - Country–market ACL is implemented in code when we build; not specified as a table here.
 
+Hosting (see §2.5, §2.12):
+
+- **No server-side SPA fallback route, and none is needed.** React Admin mounts a `HashRouter` here, so portal routes live after `#` and the host only ever sees `/`. Refreshing a portal route works. A hand-typed non-hash path such as `/products` returns 404, but the portal never generates that URL. A `MapFallbackToFile` would only matter if the portal moved to browser-history routing.
+- **The deployed app runs with `ASPNETCORE_ENVIRONMENT=Development`.** That is what currently activates `UseForwardedHeaders`, which is scoped to Development in `Program.cs`. It also enables developer exception pages. Forwarded-header handling should move out of the Development branch so the environment can be set correctly.
+- **`Bff__ClientSecret` is a plaintext App Setting**, not a Key Vault reference with a managed identity.
+- **F1 Free cannot enable Always On**, so the app cold-starts after idle. Duende's key ring and any in-flight OIDC state do not survive a recycle, which can make an interactive sign-in fail once after a quiet period.
+- **One environment, no staging and no deployment slot.** Deployments go straight to the live host.
+- **The portal ships as a single ~1.4 MB JS chunk** (~409 kB gzipped). Acceptable for a POC; code-splitting is the first optimisation if the portal takes real traffic.
+
+Data model and schema (found 2026-09-02 while building the three-course example seed and
+prototyping a MyAlpha extraction — these are the limitations that shape §4):
+
+- **`product_schema.sql` is drop-and-recreate, not a migration.** It opens with
+  `DROP TABLE ... CASCADE`. That is correct for a POC that reseeds freely and unusable in
+  production: there is no versioned migration path and no way to alter a live catalog without
+  losing it. Versioned migrations are the first item of production work, not a later tidy-up.
+- **`product_schema_smoketest.sql` is not idempotent against a seeded database.** Its cleanup
+  deletes the markets it created (`za`, `ssa`); `market` is `ON DELETE RESTRICT` and a seeded
+  `product_market` references both, so the smoke test fails once real data exists. Run order
+  must be schema → smoke test → seed, or run the smoke test on a scratch database.
+- **No product duration.** The current MyAlpha UI shows `duration.sessionCount` and
+  `duration.time`. `sessionCount` is derivable (count of `episode` items). `duration.time` is
+  the course **calendar** length — 4,838,400 s is 56 days for a 10-session course, not playback
+  — and nothing in the schema holds or derives it. Playback totals are derivable from
+  `asset.duration_seconds`; calendar length is not derivable from anything.
+- **One URL per asset, but real assets have rendition sets.** Each production image carries
+  seven or more renditions (`thumbnail`, `medium`, `medium_large`, `large`, `card_short`,
+  `lesson_feature`, `1536`/`2048`) and each video four download renditions (2160/1080/480/360)
+  with sizes. `asset` has a single `download_url` plus one `file_size_bytes`. Either an
+  `asset_rendition` child table or a documented CDN-derives-sizes convention is needed.
+- **No home for presenters or contributors.** The UI lists eight hosts and four production
+  credits with photos and role titles. These are **named real individuals — personal data**.
+  There is no table, and the example seed deliberately contains none. If a credits panel is
+  wanted, that is a data-protection decision (lawful basis, retention, image rights) before it
+  is a schema one. Do not seed real names into a demo database.
+- **No home for the "what's included" block, `intro` copy, or `gettingStarted`.** These are
+  presentation content the consumer expects. `gettingStarted` was the POC stretch goal and was
+  not built. Probably belongs to `product_family`, not `product`.
+- **`product` has no `sequence`.** MyAlpha orders products with `menu_order`; only
+  `product_family` has a sequence column here, so the editions inside a family have no
+  defined order.
+- **Language codes are messier than two-letter ISO-639-1.** Real data holds `de_CH`, `tl_PH`,
+  `pt_BR`, `zh_CN`, `zh_TW` alongside ISO-639-3 codes (`kha`, `zom`, `tcz`, `mni`, `nmf`,
+  `grt`, `ctd`, `iba`), and the reference consumer uses BCP-47 `es-419`. `language.code` is
+  `text` so all of them load, but nothing downstream may assume a length or a separator, and
+  no normalisation rule is defined yet. At least one MyAlpha row is internally inconsistent
+  (slug `…-my`, language `ms`).
+- **"Alpha Youth Series" is a family of nine editions, not one product.** Confirmed against
+  MyAlpha: nine primary-language product posts plus roughly 65 translations. The
+  family/product split in §2.7 holds, which is the good news; the seed and any import must be
+  built around it rather than around a single slug.
+- **Product translations are not products.** A translated product post is the same product in
+  another language, and this schema models language on the **asset**. That is a deliberate
+  choice (D-DOM-01) and the most consequential one for any importer: if a consumer ever needs
+  the series listed separately per language, the schema needs revisiting, not the import.
+- **Extracting from MyAlpha is harder than a query.** MyAlpha keeps episode lists in a
+  PHP-serialised `bucket_lists` postmeta (whose bucket slots hold JSON strings) and videos in
+  a PHP-serialised `videos` postmeta keyed by provider. MySQL has no `unserialize()`, so a
+  pure-SQL extraction is string surgery and not a general parser. A real import needs a
+  PHP-side export step. Per-language subtitle maps are effectively unreachable from SQL.
+
+---
+
 ## 4. Future and production
 
-
+**Estimating basis and confidence.** Day figures below are **dev-days of one engineer**, not
+calendar days, and they assume the same AI-assisted working style as the POC. They are ranges
+because several of them depend on decisions nobody has made yet; each carries a confidence
+label, and the assumptions they rest on are listed in §4.7. Cost figures are **indicative list
+prices** and are labelled as such — they have not been quoted. Treat the whole section as a
+planning input requiring review, not a commitment.
 
 ### 4.1 Roadmap
 
+Four phases. The ordering is not preference: Phase 0 and Phase 1 are prerequisites for anything
+else being safe, and Phase 2 sits largely in another team's backlog.
 
+| Phase | Theme | Why it is here | Blocks |
+| --- | --- | --- | --- |
+| **0** | Make the current build deployable and survivable | The POC has no migration path, no pipeline, one environment, and a plaintext secret (§3.6). Nothing else should be built on that. | Everything |
+| **1** | Data foundation: schema gaps and a **proper baseline product seed** | The catalog cannot be trusted as a source until the baseline products are really in it and the schema can hold what the UI already shows. | Phase 3, and any real pilot |
+| **2** | **RBAC in the Identity Provider**, replacing the allow-list stub | Portal authorisation is a configured allow-list, not roles (§3.3, T-02, T-08). Real staff access needs real roles. | Multi-team or multi-country editing |
+| **3** | **Whatsapp Content Distribution onto the API** and its new contracts | The motivating consumer. Proves the product removes a repo deploy from a content change. | — |
+
+Phases 0 and 1 can overlap once migrations exist. Phase 2 should start early **as a
+conversation** even though the code lands later, because the role model is the long-lead item.
+Phase 3 depends on Phase 1 for content that the schema does not yet hold.
 
 ### 4.2 Product and technical vision
 
+The POC deliberately built a **concept catalog** — everything we store, filtered by query
+parameters — rather than a consumer-shaped payload (§1.7). The vision keeps that shape and adds
+the things that make it a system of record rather than a demo:
 
+- **One catalog, many consumers.** Whatsapp Content Distribution, the Guest App, a modernised
+  Courses service and MyAlpha itself read the same product graph. Each consumer shapes its own
+  payload in its own BFF; the catalog does not grow a per-consumer contract. The manifest
+  vocabulary mismatches found in §4.3 are exactly what a consumer BFF is for absorbing.
+- **Editing moves to the portal, and content changes stop being deploys.** That is the whole
+  proposition. It only becomes true once the baseline data is authored here rather than
+  imported once and diverging thereafter — see the fork in §4.3.
+- **Language stays on the asset, not the product** (D-DOM-01). Dubs and subtitles are asset
+  rows; a translated product is not a new product. This is the decision most likely to be
+  challenged by a consumer, and the one most expensive to reverse.
+- **Country stays an ACL in code, markets stay data.** Optional filters never become stored
+  variant rows (D-DOM-02). The reference consumer's 11 pre-computed
+  `courseType:audience:country:language` variants are precisely the combinatorial explosion
+  this avoids.
+- **Media stays external.** The catalog holds provider, provider asset id, language and URLs.
+  It does not become a media platform, a packager or a player.
+- **Identity stays in the IDP.** No user rows, ever. Roles arrive as claims (Phase 2); the
+  catalog schema does not change to accommodate them, which is why the allow-list stub was
+  acceptable as a stop-gap.
 
 ### 4.3 Remaining work
 
+#### 4.3.1 Production readiness of what already exists (Phase 0)
 
+Each line traces to a limitation in §3.6.
+
+| Item | Days | Confidence | Note |
+| --- | --- | --- | --- |
+| Versioned migrations replacing `DROP TABLE`-and-recreate | 3–5 | Medium-high | Pick one tool (EF Core migrations, DbUp or Flyway) and back-fill an initial baseline. **Hard prerequisite for everything else.** |
+| CI/CD pipeline: build both artefacts, merge SPA into `wwwroot`, deploy to slot, smoke-test, swap | 4–6 | Medium-high | Removes the manual SPA merge, which §2.5 already calls the weakest part of the setup. |
+| Staging environment, deployment slot, per-environment config | 2–3 | Medium-high | Needs an App Service plan that supports slots (Standard+). |
+| `Bff__ClientSecret` to Key Vault with managed identity | 1–2 | High | Small and unambiguous. |
+| `ASPNETCORE_ENVIRONMENT=Production`; move `UseForwardedHeaders` out of the Development branch | 0.5–1 | High | Currently the app runs as Development in order to get forwarded headers. |
+| Azure Monitor alert rules on the custom events already emitted (§3.2) | 1–2 | Medium | The events exist; only the rules are missing. |
+| Portal code-splitting (~1.4 MB single chunk) and the responsive pass (FR-POR-09) | 2–3 | Medium | Deferred honestly in the POC. |
+| Cut over to the production App Service plan and database tier; sanity-load test | 2–3 | Medium | Plans are already provisioned (§4.5). |
+| **Subtotal** | **16–25** | | |
+
+#### 4.3.2 Data foundation and a proper baseline product seed (Phase 1)
+
+The example seed shipped with the POC is three synthetic courses on `.invalid` URLs. It is good
+enough to demonstrate the API and deliberately not real data. A **proper baseline seed** means
+the real global product line present, correct, and reconciled.
+
+**The fork that has to be decided first — import once, or author here?**
+
+| Option | What it means | Cost | Risk |
+| --- | --- | --- | --- |
+| **A — one-off import, then author in the portal** | Migrate the baseline from MyAlpha once; the portal becomes the source of truth from that day | Importer is throwaway | Needs content-owner buy-in to change where they work |
+| **B — repeated import, MyAlpha stays source of truth** | The catalog is a read replica of MyAlpha | Importer becomes a maintained sync service, +5–8 days and ongoing | **Undermines the product's whole proposition**: content changes still require a MyAlpha edit |
+
+**Recommendation: Option A.** Option B keeps the problem the product exists to solve. This is a
+product decision, not a technical one, and it is the single most important open question in §4.
+
+| Item | Days | Confidence | Note |
+| --- | --- | --- | --- |
+| Schema additions: asset renditions, product duration/session count, family content block (`gettingStarted`/`intro`/"what's included"), `product.sequence` | 4–6 | Medium | All six gaps are itemised in §3.6. Needs migrations (Phase 0) first. |
+| MyAlpha export tool: PHP-side `unserialize` of `bucket_lists` / `videos` to JSON | 2–3 | Medium | A pure-SQL extraction was prototyped and works, but it is string surgery on PHP-serialised data and cannot reach per-language subtitle maps. A PHP export step is the honest approach. |
+| Importer plus mapping and normalisation: language codes, audience vocabulary, markets and the country ACL | 3–4 | Medium-low | Normalisation rules do not exist yet (§3.6, §4.7). |
+| Media and rendition strategy: which URLs the catalog stores, signed or not | 1–2 | Low | Depends on a media-hosting decision outside this service. |
+| Reconciliation report and acceptance tests: per-product counts against MyAlpha | 2–3 | Medium | Without this, "the seed is correct" is an assertion. |
+| Content-owner review and correction cycles | 1–2 | Low | Calendar-bound, not effort-bound. |
+| **Subtotal** | **13–20** | | Add **5–8** if Option B is chosen. |
+
+#### 4.3.3 RBAC in the Identity Provider (Phase 2)
+
+Today: IDP has role scaffolding but **no roles assigned and no role claims on tokens** (§1.7),
+so Product.Bff authorises with a configured allow-list of accounts. That is documented as a
+stub (T-08) and is not production authorisation.
+
+This is **work in another team's service**, which drives both the range and the low confidence.
+The cost is dominated by one unanswered question: **are roles flat, or scoped by market?** Alpha
+is multi-country, and "editor for Alpha Kenya but not Alpha UK" is a plausible requirement that
+roughly doubles the work.
+
+| Item | Days (flat) | Days (market-scoped) | Confidence |
+| --- | --- | --- | --- |
+| Define and sign off the role model | 2–4 | 3–5 | Low — needs product and IDP owners in a room |
+| IDP: role storage, assignment, claims emission, token shape change | 6–10 | 14–22 | Low |
+| Migrate and regression-test existing IDP clients against the new token shape | 2–4 | 3–5 | Low — depends how many clients exist |
+| Replace the allow-list stub in Product.Bff with policy-based authorisation, plus tests | 2–3 | 3–4 | Medium-high — our side is small |
+| Role-aware portal UI (hide what a role cannot do) | 1–2 | 2–3 | Medium |
+| **Subtotal** | **13–23** | **25–39** | |
+
+Our own share is only **3–5 days**. Everything else is IDP-team capacity and cross-team
+scheduling. Start the role-model conversation in Phase 0 even though the code lands later.
+
+#### 4.3.4 Whatsapp Content Distribution onto the API (Phase 3)
+
+The reference consumer is a **static site** that client-fetches a pre-computed manifest of 11
+variants keyed `courseType:audience:country:language`. Inspecting it against our contract found
+mismatches that are real work, not mapping trivia:
+
+| Mismatch | Detail | Where it lands |
+| --- | --- | --- |
+| **It cannot hold a secret** | A static site has nowhere to put client credentials (T-01). It needs either build-time generation or its own confidential BFF. | Architecture choice below |
+| **Audience vocabulary differs** | Consumer uses `adult`, `teenagers`, `youth`; our tags are `adults`, `youth`, `students` | Tag data or a consumer-side map |
+| **Locale format differs** | Consumer uses BCP-47 `es-419`; our data holds `pt_BR`, `zh_CN` and ISO-639-3 codes | The normalisation rule that §3.6 says does not exist |
+| **Episode identity differs** | Consumer keys episodes on MyAlpha post ids (e.g. `"9320"`); we expose UUIDs and `(product, code)` | A stable public identifier decision |
+| **Grouping model** | Consumer has `groups[].kind` (`flat` and others); we have `product_item.grouping` | Mapping, probably lossy in one direction |
+| **`meta` shows "11 weeks"** | Calendar duration — the missing product-duration concept (§3.6) | Phase 1 schema work |
+| **`gettingStarted`, `intro`, training videos** | Copy blocks with POEditor i18n keys, not catalog data | Phase 1 schema work + an i18n strategy |
+
+**Architecture options:**
+
+| Option | How | Days | Confidence | Trade-off |
+| --- | --- | --- | --- | --- |
+| **A — build-time manifest generation** *(recommended)* | A pipeline job reads the API with client credentials and emits the manifest; site stays static, no runtime auth, no new deployable | 12–19 | Medium | Content changes need a rebuild. Mitigate with a scheduled or webhook-triggered rebuild — still far better than a code deploy. |
+| **B — runtime confidential BFF** | A small server-side component proxies the API; content is live | +6–10 on top of A | Low | A new deployable to host, secure and monitor, for a site that is currently a static artefact. |
+
+Option A breakdown: manifest generator 3–4; contract mapping and locale/vocabulary
+normalisation 2–3; content-block coverage 3–5 *(depends on Phase 1)*; i18n key reconciliation
+with POEditor 2–4; site changes, acceptance tests and pipeline wiring 2–3.
+
+**Recommendation: A first.** It proves the value — a content edit in the portal reaching the
+consumer without a code change — for roughly two-thirds of the cost, and B remains available
+later without rework of the mapping layer.
+
+#### 4.3.5 Explicitly still deferred
+
+Getting Started as a first-class feature; first-party playback or signed URL refresh; live
+Brightcove/Vimeo integration; caption and VTT handling; MyAlpha country-site shadow overrides;
+Mixpanel or any analytics store; multi-NAO tenancy; CMS workflow and content approval;
+translation memory. All were out of scope in §1.7 and remain out.
 
 ### 4.4 Time, effort, people, and roles
 
+#### Effort roll-up
 
+| Phase | Dev-days | Of which **our team** | Confidence |
+| --- | --- | --- | --- |
+| 0 — Production readiness | 16–25 | 16–25 | Medium-high |
+| 1 — Data foundation and baseline seed | 13–20 | 13–20 | Medium |
+| 2 — RBAC in IDP | 13–23 | **3–5** | Low |
+| 3 — Whatsapp Content Distribution on the API | 12–19 | 12–19 | Medium |
+| **Total (recommended path)** | **54–87** | **44–69** | |
+
+The recommended path is Option A on both forks: a one-off import (§4.3.2) and build-time
+manifest generation (§4.3.4), with flat rather than market-scoped roles. The wider scenario —
+market-scoped RBAC, a maintained MyAlpha sync, and a runtime consumer BFF — reaches roughly
+**120 dev-days**. That spread is the honest headline: *the decisions in §4.7 move this estimate
+more than the engineering does.*
+
+#### Calendar
+
+At two engineers and about four productive days each per week (≈8 dev-days/week):
+
+- **First production-capable release** (Phases 0 + 1, real data on real infrastructure, still
+  allow-list authorisation): **29–45 dev-days ≈ 4–6 weeks.**
+- **Our team's full share** (44–69 dev-days): **≈ 6–9 weeks of development.**
+- **Full scope including RBAC and the consumer: 4–6 calendar months.** The gap between 9 weeks
+  of work and 6 months of calendar is not padding — it is cross-team scheduling for Phase 2,
+  content-owner review cycles in Phase 1, and the sign-off latency on the §4.7 decisions. None
+  of those compress by adding engineers.
+
+#### People and roles
+
+| Role | Phases | Commitment | What they own |
+| --- | --- | --- | --- |
+| Backend engineer (C#) | 0, 1, 2, 3 | Full | ApplicationRoot, Domain, ProductStore, migrations, importer, manifest generator |
+| Frontend engineer (React/TS) | 0, 2 | ~40% | Portal code-splitting, responsive pass, role-aware UI |
+| IDP engineer *(another team)* | 2 | 10–18 days | Role model, storage, assignment, claims emission, client migration |
+| Platform / DevOps | 0 | ~8 days | Pipeline, slots, Key Vault, managed identity, App Service and database tiers, alert rules |
+| Content owner / data steward | 1 | Review cycles | Signs off that the baseline catalog is correct. **Owns the Option A/B decision.** |
+| Product owner | 0–3 | Ongoing | The §4.7 decisions, consumer priority, role model requirements |
+| QA | 1, 3 | ~5 days | Reconciliation acceptance, consumer contract tests |
+| Data protection / DPO | 1 *(conditional)* | Advisory | Only if presenters/contributors are ever modelled (§3.6) |
+
+**Smallest viable team: two engineers plus part-time platform and IDP support.** One engineer
+could deliver Phases 0 and 1 alone in 29–45 days; Phase 3 needs the manifest and site work,
+which is a different skill set, and Phase 2 cannot be done by us at all.
 
 ### 4.5 Costs
 
+> **These are indicative list prices from general knowledge, not quotes.** They are ex-VAT,
+> exclude any EA/CSP discount, and Azure pricing changes. Verify every line in the Azure
+> Pricing Calculator before it reaches a budget. **Confidence in the exact figures is low;
+> confidence in the shape — the database dominates, compute may be nearly free — is high.**
 
+#### What we pay today
+
+One App Service on **F1 Free** and one PostgreSQL Flexible Server (v18, **Burstable B2s**),
+uksouth, Development subscription (§2.12). Compute is free; **the run cost is the database
+only**, indicatively **£40–60/month** including storage. Application Insights sits inside the
+free ingestion allowance at POC volume.
+
+That tier is the direct cause of three limitations in §3.6: **F1 cannot enable Always On**, so
+the app cold-starts and an interactive sign-in can fail once after idle; **F1 supports no
+deployment slots**, so there is no safe deploy; and **F1 supports no VNet integration**, which
+is why the database sits on public access with firewall rules rather than behind a private
+endpoint.
+
+#### What production needs, and why
+
+| Line | Change | Indicative £/month | Driver |
+| --- | --- | --- | --- |
+| App Service plan | F1 Free → Standard (S1) or Premium (P1v3) | **£0 if absorbed**, else ~£55–70 (S1) or ~£95–130 (P1v3) | Always On, deployment slots, autoscale, VNet integration |
+| PostgreSQL | Burstable B2s → General Purpose (e.g. D2ds_v5) | ~£120–170 | Predictable performance; burstable credits are not a production characteristic |
+| PostgreSQL HA | Add zone-redundant high availability | **roughly doubles the compute line**, +£120–170 | Survives a zone loss; this is the single largest new cost |
+| Storage + backups | 128 GB + retention beyond default | ~£15–30 | — |
+| Key Vault | New | ~£1–3 | Removes the plaintext `Bff__ClientSecret` |
+| App Insights ingestion | Beyond the free allowance | ~£0–15 | Scales with traffic and log volume |
+| Private endpoint / VNet | New, if the database leaves public access | ~£6–12 | Closes the public-access limitation |
+| Front Door | **Only if the portal separates** from the single host | ~£25+ traffic | Not needed on the current single-host design (§2.12) |
+| **Production total** | | **~£260–400** (or **~£320–470** if compute is not absorbed) | |
+| Staging environment | Burstable database, slot on the shared plan | ~£15–50 | No staging exists today (§3.6) |
+
+**The App Service line is the good news and needs confirming.** Better plans are already
+provisioned, so if this app shares an existing plan the marginal compute cost is close to zero
+and production spend is essentially the database. Worth checking whether the existing plan has
+headroom, and whether sharing it is acceptable — a noisy neighbour on a shared plan is a real
+operational coupling, and slots consume plan capacity too.
+
+**The honest summary:** production is roughly **£260–400/month against £40–60 today** — about a
+**six- to seven-fold increase at the midpoints** (four- to ten-fold across the full range) — and
+**almost all of it is the database**: around 90–95% of the total if the App Service plan is
+shared, about 80% if it is not. **Roughly half the database line is high availability alone.**
+If HA is not required for a first production release, the figure drops to roughly
+**£140–230/month**. That is a genuine decision to put in front of someone, not a technical
+default.
+
+Not included: media hosting and CDN egress (media is external to this service by design, but
+somebody pays for it), non-production environments beyond one staging, and engineering time.
 
 ### 4.6 Dependencies
 
+| Dependency | Needed for | Nature | If it does not arrive |
+| --- | --- | --- | --- |
+| **IDP team capacity and a signed-off role model** | Phase 2 | **Blocking, external, long-lead** | Portal authorisation stays an allow-list stub. Usable for a small named team; not for multi-country editing. |
+| Platform / subscription owner | Phase 0 | Blocking | No production subscription, plan, database tier, Key Vault or private endpoint. Phase 0 cannot complete. |
+| MyAlpha read access (read replica) | Phase 1 | Blocking for import | No baseline import; the catalog would have to be authored from scratch in the portal. |
+| Content owners | Phase 1 | Blocking for sign-off | The baseline seed cannot be declared correct. |
+| Media hosting decision (Brightcove / Vimeo / blob + CDN, signed or open) | Phase 1 | Blocking for asset URL policy | Asset URLs remain placeholders and the rendition model stays undecided. |
+| POEditor | Phase 3 | Blocking if the consumer keeps key-based copy | The consumer's `gettingStarted` copy cannot be resolved. |
+| Data protection / DPO advice | Phase 1, conditional | Advisory | Presenters and contributors stay unmodelled — which is the safe default. |
+| Whatsapp Content Distribution team | Phase 3 | Collaborative | No consumer migration; the product's value stays unproven in production. |
 
+**One dependency deserves separate mention: credential hygiene.** A production MyAlpha
+read-replica password was found in plaintext in a working directory during this exercise. It was
+`.gitignore`d and therefore not committed, so this is not an incident on the record — but any
+Phase 1 import must be given a purpose-scoped, read-only credential issued through the normal
+route, not a copy of an existing one.
 
 ### 4.7 Assumptions needed to take the product to production
 
+Each of these is currently an assumption, not a decision. The two marked **critical** move the
+estimate in §4.4 more than any engineering choice.
+
+| # | Assumption | Risk if wrong |
+| --- | --- | --- |
+| 1 | **CRITICAL — The portal becomes the source of truth for baseline products** (Option A, §4.3.2) | If MyAlpha stays authoritative, the importer becomes a maintained sync service (+5–8 days and ongoing cost) **and the product no longer removes a deploy from a content change** — which was the entire proposition |
+| 2 | **CRITICAL — Roles are flat, not scoped by market** (§4.3.3) | Market-scoped roles take Phase 2 from 13–23 to 25–39 days and materially change the IDP token model |
+| 3 | Language stays modelled on the asset, not the product (D-DOM-01) | A consumer needing per-language product listings forces a schema change at the centre of the model, and a re-import |
+| 4 | The country–market ACL can stay code rather than data | Country-specific behaviour becomes a deploy; the ACL is currently untested as a unit and undocumented as a table |
+| 5 | A locale normalisation rule can be agreed (`es-419` / `pt_BR` / ISO-639-3 all coexist) | Language matching silently mis-resolves and the fallback path returns the wrong asset — a correctness bug that looks like missing content |
+| 6 | Build-time manifest generation is acceptable to the consumer (Option A, §4.3.4) | A runtime confidential BFF adds 6–10 days and a new deployable to host, secure and monitor |
+| 7 | Media stays external and the catalog stores URLs, not files | The service acquires storage, egress cost and a signed-URL refresh concern it was explicitly scoped away from |
+| 8 | Presenters and contributors are not required | Modelling named individuals with photos needs a lawful basis, retention rule and image-rights position before any schema work |
+| 9 | A production App Service plan can be shared | Compute goes from roughly £0 to £55–130/month, and a noisy neighbour becomes an operational risk |
+| 10 | Zone-redundant database HA is required at first production release | If it is not, run cost roughly halves (§4.5). If it is assumed and skipped, a zone loss takes the catalog offline |
+| 11 | One staging environment is enough | Any further environment multiplies the database line, which is the dominant cost |
+| 12 | Traffic stays modest — internal consumers, not public anonymous read | Sizing, caching, rate limiting and the Front Door question all reopen |
+| 13 | The demo's synthetic three-course seed is never mistaken for real data | `.invalid` URLs and invented video ids in a production database would be visible to end users |
+
+**Not an assumption — a stated risk.** The allow-list stub (T-08) is the most likely thing to be
+mistaken for production readiness, because it *works*. It authorises correctly for a small,
+named, carefully-configured group. It has no roles, no delegation, no audit trail of who granted
+access, and no answer for country-scoped editing. It should be treated as a countdown to Phase
+2, not a solution.

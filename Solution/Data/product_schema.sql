@@ -5,7 +5,8 @@
 
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- UUID defaults use core gen_random_uuid() (PostgreSQL 13+). Azure Flexible Server
+-- does not allow CREATE EXTENSION pgcrypto unless it is added to azure.extensions.
 
 DROP TABLE IF EXISTS
     asset_market,

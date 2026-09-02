@@ -366,3 +366,19 @@ Additions only. Do not remove, rewrite, or reorder existing entries.
 
 - Paused. Portal CRUD, FK names/picker, products as home, BFF logout (`sid`), and allow-list 403 page are in place. Next work is deployments and documentation (outside this session).
 - Recorded this session in `AiTranscripts/2026-09-01T1717+02_session-pause.md`.
+
+## 2026-09-02 13:53 (UTC+2) — Schema without pgcrypto
+
+- Dropped `CREATE EXTENSION pgcrypto` from `product_schema.sql`. UUID defaults use core `gen_random_uuid()` (PostgreSQL 13+ / Azure Flexible Server). Re-applied locally and smoke-tested.
+- Recorded this session in `AiTranscripts/2026-09-02T1353+02_azure-pg-schema.md`.
+
+## 2026-09-02 14:27 (UTC+2) — Pause tracking
+
+- Paused tracking. Last AI work this session: schema without `pgcrypto` for Azure Flexible Server. Deployment continues outside this session.
+- Recorded this session in `AiTranscripts/2026-09-02T1427+02_pause-tracking.md`.
+
+## 2026-09-02 15:29 (UTC+2) — Dossier §4 review and repo README
+
+- Reviewed dossier additions (mainly §4, plus §2.5/§2.12 and §3.6 data limitations). Added a root `README.md`: one-paragraph product summary, directory map, link to the dossier.
+- Recorded this session in `AiTranscripts/2026-09-02T1529+02_dossier-readme.md`.
+
