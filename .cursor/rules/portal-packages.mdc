@@ -1,0 +1,11 @@
+---
+description: Portal uses pnpm. Do not add packages unless they are dossier-listed or the user has approved them.
+alwaysApply: true
+---
+
+# Portal packages (pnpm)
+
+- Package manager for `Solution/product-portal` is **pnpm**, never npm or yarn (`pnpm-lock.yaml` only).
+- Allowed without asking: **Vite**, **React**, **TypeScript**, **React Admin**, **Vitest** (and the official Vite `react-ts` template's own tooling).
+- **Do not** add any other package, plugin, or UI kit until the user **explicitly approves** it in chat. If a library would help (for example `ra-data-simple-rest`, jsdom, MUI extras), **ask first** and wait.
+- Transitive dependencies of an approved package are fine; do not add extra direct dependencies around them.

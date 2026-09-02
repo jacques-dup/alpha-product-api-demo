@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Product demo</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <h1>Product demo</h1>
+    <p>
+        Buttons call this host at <code>/product</code> (same-origin). No client secret in the page.
+        GET routes need a client-credentials bearer. For interactive try-it-out, use
+        <a href="/swagger">Swagger</a> (Product API: paste a bearer; Portal BFF: log in at
+        <code>/bff/login</code>, then Authorize <code>X-CSRF: 1</code>).
+        Id/code buttons match <code>seed_product_data_example.sql</code>.
+    </p>
+
+    <form id="custom-get">
+        <label>
+            Path
+            <input id="custom-path" name="path" type="text" value="/product/products" spellcheck="false" />
+        </label>
+        <button type="submit">GET</button>
+    </form>
+
+    <section>
+        <h2>Lookups</h2>
+        <p>
+            <button type="button" data-path="/product/languages">Languages</button>
+            <button type="button" data-path="/product/languages/en">Language en</button>
+            <button type="button" data-path="/product/markets">Markets</button>
+            <button type="button" data-path="/product/markets/gb">Market gb</button>
+            <button type="button" data-path="/product/families">Families</button>
+            <button type="button" data-path="/product/families/a0000000-0000-4000-a000-000000000001">Family by id</button>
+            <button type="button" data-path="/product/tags">Tags</button>
+            <button type="button" data-path="/product/tags/a0000000-0000-4000-a000-000000000301">Tag adults</button>
+        </p>
+    </section>
+
+    <section>
+        <h2>Products</h2>
+        <p>
+            <button type="button" data-path="/product/products">List</button>
+            <button type="button" data-path="/product/products?courseType=alpha-film-series">courseType</button>
+            <button type="button" data-path="/product/products?audience=adults">audience=adults</button>
+            <button type="button" data-path="/product/products?country=gb">country=gb (listed)</button>
+            <button type="button" data-path="/product/products?country=ke">country=ke → ssa (listed)</button>
+            <button type="button" data-path="/product/products?country=za">country=za (not listed)</button>
+            <button type="button" data-path="/product/products?country=xx">country=xx (400)</button>
+            <button type="button" data-path="/product/products?language=fr">language=fr</button>
+            <button type="button" data-path="/product/products/code/alpha-film-series">By code</button>
+            <button type="button" data-path="/product/products/code/alpha-film-series?language=fr">By code, language=fr</button>
+            <button type="button" data-path="/product/products/a0000000-0000-4000-a000-000000000010">By id</button>
+        </p>
+    </section>
+
+    <section>
+        <h2>Items, assets, links</h2>
+        <p>
+            <button type="button" data-path="/product/items">Items</button>
+            <button type="button" data-path="/product/items?productId=a0000000-0000-4000-a000-000000000010">Items for product</button>
+            <button type="button" data-path="/product/items/a0000000-0000-4000-a000-000000000101">Item ep-01</button>
+            <button type="button" data-path="/product/assets">Assets</button>
+            <button type="button" data-path="/product/assets?productId=a0000000-0000-4000-a000-000000000010">Assets for product</button>
+            <button type="button" data-path="/product/assets?itemId=a0000000-0000-4000-a000-000000000101">Assets for ep-01</button>
+            <button type="button" data-path="/product/assets/a0000000-0000-4000-a000-000000000401">Asset by id</button>
+            <button type="button" data-path="/product/product-tags">Product tags</button>
+            <button type="button" data-path="/product/product-tags?productId=a0000000-0000-4000-a000-000000000010">Tags for product</button>
+            <button type="button" data-path="/product/product-markets">Product markets</button>
+            <button type="button" data-path="/product/product-markets?productId=a0000000-0000-4000-a000-000000000010">Markets for product</button>
+            <button type="button" data-path="/product/asset-markets">Asset markets</button>
+            <button type="button" data-path="/product/asset-markets?assetId=a0000000-0000-4000-a000-000000000504">ZA trailer markets</button>
+        </p>
+    </section>
+
+    <p id="status">Choose a request.</p>
+    <pre id="result"></pre>
+    <script src="app.js"></script>
+</body>
+</html>

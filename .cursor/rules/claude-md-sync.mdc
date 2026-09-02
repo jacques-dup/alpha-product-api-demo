@@ -1,0 +1,14 @@
+---
+description: Keep root CLAUDE.md and .cursor/rules in sync. Same conventions for Cursor and Claude Code / Rider.
+alwaysApply: true
+---
+
+# CLAUDE.md and Cursor rules stay in sync
+
+`.cursor/rules/*.mdc` and root `CLAUDE.md` are the **same project conventions** on two surfaces (Cursor vs Claude Code / Rider).
+
+- After changing any file in `.cursor/rules/`, update `CLAUDE.md` in the **same session**.
+- After changing `CLAUDE.md` conventions, update the matching `.mdc` (or add one) in the **same session**.
+- Cursor files keep YAML frontmatter; `CLAUDE.md` is one markdown file without frontmatter.
+- Do not let them drift. Do not maintain a third copy (no extra MEMORY.md).
+- Local clone paths stay labeled **AI only**. Never copy those paths into `Documentation/`, `Brief/`, `TimeTracking/`, or `Solution/`.

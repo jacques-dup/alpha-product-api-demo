@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+TestResults/
+*.trx
+
+# JetBrains HTTP client — local secrets (client ids/secrets for demo OAuth clients)
+http-client.private.env.json
+**/http-client.private.env.json

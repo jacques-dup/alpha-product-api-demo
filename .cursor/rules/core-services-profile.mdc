@@ -1,0 +1,20 @@
+---
+description: Core Services Profile is a structure reference for ApplicationRoot. Never write its local path in project docs. Do not change that repo.
+alwaysApply: true
+---
+
+# Core Services (Profile)
+
+Call it **Core Services** (the **Profile** module) in docs, transcripts (assistant output), timeline entries, code comments, and READMEs.
+
+## Local reference (AI only)
+
+On this machine the repo lives at `/Users/jdples/Repositories/CoreServices`. Profile is nested (`Profile/src/...` plus `CoreServices.ApplicationRoot`). Use that path only to inspect **ApplicationRoot** composition (entrypoint plugs adapters). **Never** write this path in `Documentation/`, `Brief/`, `TimeTracking/`, `Solution/`, or other submitted docs.
+
+## Role in this exercise
+
+Inspiration only: **ApplicationRoot** is the process entrypoint; Web API (and here, BFF) are **adapters registered as services**. This exercise is a single service, not a modular monolith.
+
+Do **not** copy: double folder nesting, reverse-proxy to inner Kestrel hosts, `Driven.*` / `Driver.*` project names, Service Bus, cron, or extra background adapters.
+
+**Never modify** the Core Services repository.

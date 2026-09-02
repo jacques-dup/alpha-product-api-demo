@@ -1,0 +1,9 @@
+# AI Transcript — 2026-09-01 09:46 (UTC+2)
+
+## User
+
+With the data model set i want to focus on the portal for a moment. We will start with full CRUD capabilities on the models. We can use the React Admin framework to simplify the rollout, https://github.com/marmelab/react-admin . The UI will therefore be typescript, with react. Use vite as the bundler. The protal itself will do the authorization flow with IDP. IDP itself currently does not fully support role based access. it has the scaffolding for it but no roles are assigned and we don't get the role claims back from the service. IDP is on this local path for reference /Users/jdples/Repositories/IdentityService. add to rules that we don't refer to this path, we refer to IDP and that no changes are to be made to IDP. We can have the API project include an adapter for doein auth for the portal as if it is a BFF, and have its own API endpoints for doing the crud operations. The main WebAPI will also be an adapter on the C# project that only delivers the read scoped data. The C# Application can lookto an existing BFF like the MyAlphaBFF to understand teh structure I want for our psudo hexagonal / modularized approch to structuring the code and give a summary overview in the dossier of how this project will be structured for me to review. The MyAlpha BFF is at local path /Users/jdples/Repositories/MyAlpha/myalpha-bff. Alo add the cursor rule for this reference
+
+## Assistant
+
+Added always-apply Cursor rules for IDP and MyAlpha BFF (title only in submitted docs; no changes to those repos). Updated the dossier with a proposed C#/portal structure for review: React Admin + Vite + TypeScript; Host.Bff (OIDC cookie + CRUD); Host.WebApi (read-only); MyAlpha BFF-shaped modules; write vs read without IDP role claims. No Solution code yet.

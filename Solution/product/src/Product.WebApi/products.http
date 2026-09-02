@@ -1,0 +1,247 @@
+### Product.WebApi — read API (`/product`)
+#
+# Auth: client-credentials bearer from the Alpha Identity Provider, scope `alpha.idp.read`.
+# There is no end-user login on this API.
+#
+# Setup:
+#   1. Select the `local` (or `local-https`) environment in the HTTP client run panel.
+#   2. Put the demo client id/secret in `http-client.private.env.json` (gitignored).
+#   3. Run the application root, then run any request below.
+#   4. Swagger UI (human explorer): {{productBaseUrl}}/swagger — Authorize, paste the token.
+#
+# `{{$auth.token("product_clientcredentials_read")}}` makes the HTTP client fetch and
+# cache the token itself, using the OAuth2 block in `http-client.env.json`.
+
+@familyId = a0000000-0000-4000-a000-000000000001
+@tagId = a0000000-0000-4000-a000-000000000301
+@productId = a0000000-0000-4000-a000-000000000001
+@itemId = a0000000-0000-4000-a000-000000000001
+@assetId = a0000000-0000-4000-a000-000000000001
+@productCode = alpha-film-series
+
+
+###############################################################################
+# Token — raw client-credentials request
+###############################################################################
+
+### Fetch an access token directly (inspect scope/aud/exp before using the API)
+# @name clientCredentialsToken
+POST {{idpBaseUrl}}/connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&client_id={{webApiClientId}}&client_secret={{webApiClientSecret}}&scope=alpha.idp.read
+
+> {%
+    client.test("token issued", function () {
+        client.assert(response.status === 200, "status " + response.status + ": " + JSON.stringify(response.body));
+        client.assert(response.body.access_token !== undefined, "no access_token in response");
+    });
+    client.global.set("rawAccessToken", response.body.access_token);
+%}
+
+### Discovery document (issuer, token endpoint, signing keys)
+GET {{idpBaseUrl}}/.well-known/openid-configuration
+Accept: application/json
+
+
+###############################################################################
+# Negative cases — the API must not serve product data anonymously
+###############################################################################
+
+### No token → 401
+GET {{productBaseUrl}}/product/languages
+Accept: application/json
+
+> {%
+    client.test("anonymous is rejected", function () {
+        client.assert(response.status === 401, "expected 401, got " + response.status);
+    });
+%}
+
+### Garbage token → 401
+GET {{productBaseUrl}}/product/languages
+Accept: application/json
+Authorization: Bearer not-a-real-token
+
+> {%
+    client.test("invalid token is rejected", function () {
+        client.assert(response.status === 401, "expected 401, got " + response.status);
+    });
+%}
+
+### Write method on a read-only API → 404/405, never 200
+POST {{productBaseUrl}}/product/products
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+{}
+
+> {%
+    client.test("read API exposes no write route", function () {
+        client.assert(response.status === 404 || response.status === 405, "got " + response.status);
+    });
+%}
+
+
+###############################################################################
+# Reference data
+###############################################################################
+
+### Languages
+GET {{productBaseUrl}}/product/languages
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+> {%
+    client.test("authorised read succeeds", function () {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+    });
+%}
+
+### Language by code
+GET {{productBaseUrl}}/product/languages/en
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Markets
+GET {{productBaseUrl}}/product/markets
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Market by code
+GET {{productBaseUrl}}/product/markets/gb
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Families
+GET {{productBaseUrl}}/product/families
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Family by id
+GET {{productBaseUrl}}/product/families/{{familyId}}
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Tags
+GET {{productBaseUrl}}/product/tags
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Tag by id
+GET {{productBaseUrl}}/product/tags/{{tagId}}
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+
+###############################################################################
+# Product payloads
+###############################################################################
+
+### Products
+GET {{productBaseUrl}}/product/products
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Products filtered by course type (family code)
+GET {{productBaseUrl}}/product/products?courseType=alpha-film-series
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Products filtered by audience
+GET {{productBaseUrl}}/product/products?audience=adults
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Products for a listed country
+GET {{productBaseUrl}}/product/products?country=gb
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Products for a country that maps to a regional market (ke -> ssa)
+GET {{productBaseUrl}}/product/products?country=ke
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Products for an unknown country → 400
+GET {{productBaseUrl}}/product/products?country=xx
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+> {%
+    client.test("unknown country is a bad request", function () {
+        client.assert(response.status === 400, "expected 400, got " + response.status);
+    });
+%}
+
+### Products with language fallback
+GET {{productBaseUrl}}/product/products?language=fr
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Product by code
+GET {{productBaseUrl}}/product/products/code/{{productCode}}
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Product by code, language fallback
+GET {{productBaseUrl}}/product/products/code/{{productCode}}?language=fr
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Product by id
+GET {{productBaseUrl}}/product/products/{{productId}}
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Unknown product id → 404
+GET {{productBaseUrl}}/product/products/00000000-0000-4000-a000-000000000000
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+> {%
+    client.test("unknown product is not found", function () {
+        client.assert(response.status === 404, "expected 404, got " + response.status);
+    });
+%}
+
+
+###############################################################################
+# Items, assets and join views
+###############################################################################
+
+### Product items
+GET {{productBaseUrl}}/product/items
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Product item by id
+GET {{productBaseUrl}}/product/items/{{itemId}}
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Assets
+GET {{productBaseUrl}}/product/assets
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Asset by id
+GET {{productBaseUrl}}/product/assets/{{assetId}}
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Product tags
+GET {{productBaseUrl}}/product/product-tags
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Product markets
+GET {{productBaseUrl}}/product/product-markets
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}
+
+### Asset markets
+GET {{productBaseUrl}}/product/asset-markets
+Accept: application/json
+Authorization: Bearer {{$auth.token("product_clientcredentials_read")}}

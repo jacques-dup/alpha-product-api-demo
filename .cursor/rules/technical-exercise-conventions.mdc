@@ -1,0 +1,42 @@
+---
+description: Technical exercise project conventions — directory layout, AI transcripts, time tracking, and allowed AI usage.
+alwaysApply: true
+---
+
+# Technical Exercise Conventions
+
+This repo is a Head of Engineering technical exercise. Use AI for documentation, plans, diagrams, a minimal writeup, activity/edit tracking, research, and code.
+
+## Directories
+
+- `Brief/` — original brief PDF plus a markdown summary for ingestion. Do not alter the PDF.
+- `Documentation/` — architectural, planning, and reasoning docs as `.md` files.
+- `Solution/` — all product/application code.
+- `AiTranscripts/` — every AI interaction as a timestamped `.md` file (including the current session).
+- `TimeTracking/` — engagement tracking. Canonical file: `TimeTracking/timeline.md`.
+- `CLAUDE.md` — Claude Code / Rider copy of `.cursor/rules/`. Keep both in sync.
+
+## AI transcripts (`AiTranscripts/`)
+
+After each session, write or update a transcript `.md` named `YYYY-MM-DDTHHMM+TZ_short-slug.md`.
+
+Include:
+
+- Session timestamp (ISO-like, with timezone)
+- Exact user input
+- Exact model/user-facing output
+
+Do **not** include analyzing thoughts, internal reasoning, tool-call traces, or hidden chain-of-thought.
+
+## Time tracking (`TimeTracking/timeline.md`)
+
+Automatically **append** a session entry when work happens in this project: timestamp, short title, and what was done.
+
+- **Additions only.** Never delete, rewrite, or reorder existing entries.
+- The candidate may add manual entries for work done outside AI; leave those untouched.
+
+## Docs and code
+
+- Put plans, architecture, diagrams (as markdown/mermaid), and reasoning in `Documentation/`.
+- Put implementation in `Solution/`.
+- Keep writeups minimal unless asked otherwise.

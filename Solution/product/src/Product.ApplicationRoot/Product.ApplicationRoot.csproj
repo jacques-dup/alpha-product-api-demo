@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Product.Domain\Product.Domain.csproj" />
+    <ProjectReference Include="..\Product.ProductStore\Product.ProductStore.csproj" />
+    <ProjectReference Include="..\Product.Bff\Product.Bff.csproj" />
+    <ProjectReference Include="..\Product.WebApi\Product.WebApi.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>ce5952d8-c354-4358-b538-ae779762b702</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

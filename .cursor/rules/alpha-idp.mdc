@@ -1,0 +1,22 @@
+---
+description: Alpha Identity Provider (IDP) is consume-only. Never write its local path in project docs. Do not change IDP.
+alwaysApply: true
+---
+
+# Alpha Identity Provider
+
+Call it **IDP** or **Alpha Identity Provider** (self-hosted Duende IdentityService). Use that name in docs, transcripts (assistant output), timeline entries, code comments, and READMEs.
+
+## Local reference (AI only)
+
+On this machine the IDP repo lives at `/Users/jdples/Repositories/IdentityService`. Use that path only to inspect the system. **Never** write this path (or any other filesystem path to it) in `Documentation/`, `Brief/`, `TimeTracking/`, `Solution/`, or other submitted docs.
+
+## Do not change IDP
+
+No work on the IDP **service**: policies, users, themes, roles, claims, grants, extra scopes, or server configuration. The candidate **may register demo OAuth clients** for this POC; client ids/secrets go in **env files after the project is scaffolded**, not in the IDP codebase.
+
+IDP has scaffolding for role-based access, but **no roles are assigned** and **role claims are not returned**. Do not design this product as if role claims exist. Do not add roles in IDP to make the POC work.
+
+This build **consumes** IDP as standard OAuth/OIDC (dev discovery only). Use existing scopes **`alpha.idp.read`** (WebApi, client credentials) and **`alpha.idp.readwrite`** (portal BFF, interactive). Do not add scopes or roles in IDP.
+
+Portal authorization beyond scopes is an **allow-list stub in this product** (configured IDP account ids), not IDP role claims. Do not store user profiles in this service.

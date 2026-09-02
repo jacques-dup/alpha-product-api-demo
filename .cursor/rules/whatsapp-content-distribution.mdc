@@ -1,0 +1,18 @@
+---
+description: Reference consumer for this exercise — Whatsapp Content Distribution. Never write its local path in project documentation.
+alwaysApply: true
+---
+
+# Whatsapp Content Distribution
+
+The reference consumer for this exercise is titled **Whatsapp Content Distribution**. Use that title in all project docs, transcripts (assistant output), timeline entries, code comments, and READMEs.
+
+## Local reference (AI only)
+
+On this machine the project lives at `/Users/jdples/Repositories/whatsapp/whatsapp-content`. Use that path only to inspect the system. **Never** write this path (or any other filesystem path to it) in `Documentation/`, `Brief/`, `TimeTracking/`, `Solution/`, or other submitted docs.
+
+## Role in this exercise
+
+Whatsapp Content Distribution is a static site: it decodes a `?d=` payload, looks up `courseType:audience:country:language`, and renders a variant from a static JSON manifest. It **motivated** this product (hard-coded JSON, no portal). This exercise is **not** a drop-in replacement for that manifest and is **not** measured against that site. Do not integrate it. If this product later looks viable, a consuming service can be adapted then.
+
+Do not rebuild Whatsapp Content Distribution, the WhatsApp registration worker, MyAlpha, the Guest App, or a full Courses platform. Keep design and code inside the baseline scope in `Documentation/product-and-technical-dossier.md` §1.7.

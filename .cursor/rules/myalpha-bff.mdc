@@ -1,0 +1,18 @@
+---
+description: MyAlpha BFF is a structure reference only. Never write its local path in project docs. Do not change that repo.
+alwaysApply: true
+---
+
+# MyAlpha BFF
+
+Call it **MyAlpha BFF**. Use that title in docs, transcripts (assistant output), timeline entries, code comments, and READMEs.
+
+## Local reference (AI only)
+
+On this machine the project lives at `/Users/jdples/Repositories/MyAlpha/myalpha-bff`. Use that path only to inspect structure (Duende BFF host, `Endpoints/Api`, `Driven.*` adapters, `SharedKernel` ports). **Never** write this path (or any other filesystem path to it) in `Documentation/`, `Brief/`, `TimeTracking/`, `Solution/`, or other submitted docs.
+
+## Role in this exercise
+
+MyAlpha BFF is a **shape reference** for this product's C# modularisation (inbound host + driven persistence). Do not rebuild MyAlpha, copy WordPress/MySQL access, Service Bus, HMAC clients, token-exchange to other Alpha APIs, or YARP remote-API proxying.
+
+**Never modify** the MyAlpha BFF repository. Keep design and code inside this exercise repo (`Documentation/`, `Solution/`).

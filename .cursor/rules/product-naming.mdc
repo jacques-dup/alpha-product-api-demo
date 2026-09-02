@@ -1,0 +1,17 @@
+---
+description: Call this system Product, not Catalog. Use Product in docs, API paths, tags, and type names.
+alwaysApply: true
+---
+
+# Product (not Catalog)
+
+This exercise is **Product** (Product.WebApi, Product.Bff, Product.Domain, Product.ProductStore, Product.ApplicationRoot). Do **not** name the product, API, module, route prefix, OpenAPI tag, or types **Catalog**.
+
+Use **Product** in docs, transcripts (assistant output), timeline entries, code comments, READMEs, route groups, and identifiers.
+
+```text
+? /catalog, WithTags("Catalog"), CatalogSnapshot, ProductCatalogMapper, "catalog API"
+? /product, WithTags("Product"), ProductSnapshot, ProductPayloadMapper, Product.WebApi
+```
+
+Do not rename SQL tables or columns (`product`, `product_family`, …). Prefer “product data” / “product payload” over “catalog” in new prose. Do not rewrite locked dossier history unless the user asks; new writing follows this rule.

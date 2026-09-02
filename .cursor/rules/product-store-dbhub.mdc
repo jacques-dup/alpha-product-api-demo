@@ -1,0 +1,13 @@
+---
+description: Local product_service Postgres and DBHub MCP ù schema source of truth and store work.
+globs: Solution/Data/**/*,Solution/product/src/Product.ProductStore/**/*,Solution/product/src/Product.Domain/**/*,Documentation/product-store-build-plan.md
+alwaysApply: false
+---
+
+# Product database (local)
+
+- Database name: **`product_service`** (local Postgres). Schema source of truth: `Solution/Data/product_schema.sql`. Validate with `Solution/Data/product_schema_smoketest.sql`.
+- After changing the SQL file: re-apply it to `product_service`, then run the smoke test.
+- Countryùmarket ACL is **not** a table. Audience is many-to-many (no unique-audience constraint).
+- **Product.ProductStore** implements `IProductRepository` via **ProductRepository**. Product rules (language fallback, country ACL, API contract) stay in Domain.
+- This project has a [DBHub](https://dbhub.ai/) MCP server (`dbhub`) pointed at `product_service`. Prefer `search_objects` then `execute_sql` when inspecting or adjusting product data. Do not invent schema in the database that is not also in `product_schema.sql`.
